@@ -138,6 +138,17 @@ nav.scrolled{background:rgba(31,20,32,.72);backdrop-filter:blur(14px);-webkit-ba
 .scene .bulb.lit .halo{opacity:.9}
 .scene .bulb.lit .core{fill:#FFF3DD}
 .scene .dust circle{opacity:0}
+
+/* tall screens (phones, portrait tablets): the scrub runs on a tall crop centered on the mirror, captions sit low, the lit mirror stays clear above them */
+@media (orientation: portrait){
+  .band{left:var(--gutter);right:var(--gutter);width:auto;top:auto;bottom:112px;transform:none}
+  .band:not(:first-child){bottom:calc(36px + env(safe-area-inset-bottom,0px))}
+  .scrim::before{background:linear-gradient(0deg,rgba(10,6,12,.84) 0%,rgba(10,6,12,.72) 30%,rgba(10,6,12,.34) 52%,rgba(10,6,12,0) 68%)}
+  .scene .mirror-g,.scene .chair-g,.scene .warm{transform:translateX(-380px)}
+  .scene .satin-1{transform:translate(-380px,calc(var(--p)*1000px))}
+  .scene .satin-2{transform:translate(-380px,calc(var(--p)*800px))}
+  .scene .satin-3{transform:translate(-380px,calc(var(--p)*420px))}
+}
 .stage.live .dust circle{animation:dust 11s linear infinite}
 .stage.live .dust circle:nth-child(2n){animation-duration:14s;animation-delay:-5s}
 .stage.live .dust circle:nth-child(3n){animation-duration:17s;animation-delay:-9s}
@@ -309,8 +320,8 @@ footer ul{list-style:none;display:grid;gap:8px}
 .legal{margin-top:44px;padding-top:24px;border-top:1px solid var(--panel-edge);font-size:.82rem;line-height:1.7;display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end}
 .legal .copy{text-align:right;white-space:nowrap}
 
-/* the five static-hero gates (identical in JS) */
-@media (max-width: 720px),(orientation: portrait) and (max-width: 1024px),(orientation: portrait) and (pointer: coarse),(orientation: landscape) and (pointer: coarse) and (max-height: 560px),(prefers-reduced-motion: reduce){
+/* the static-hero gates (identical in JS): phones held sideways and reduced motion. Phones in portrait now get the tall scrub */
+@media (orientation: landscape) and (pointer: coarse) and (max-height: 560px),(prefers-reduced-motion: reduce){
   .hero{height:auto;min-height:100vh;min-height:100svh}
   .stage{position:relative;--p:1}
   #hero,.bands,.cue{display:none}
@@ -744,10 +755,14 @@ $$('.split').forEach((el, idx) => {
 const hero = $('.hero'), stage = $('.stage'), video = $('#hero'), cue = $('.cue'), ring = $('.ring'), posterLayer = $('.poster');
 const bands = $$('.band').map(el => ({ el, a: +el.dataset.a, b: +el.dataset.b, ramp: el.dataset.ramp ? +el.dataset.ramp : 0, op: -1, k: -1, on: false }));
 const heroBulbs = $$('.scene .bulb');
-// VIDEO STEP: done. Veo 3.1 Lite curtain drop, trimmed to 3s, scrub-encoded with a keyframe every 8 frames
+// VIDEO STEP: done. Veo 3.1 Lite curtain drop, trimmed to 3s, scrub-encoded with a keyframe every 8 frames.
+// Two cuts of the same shot: wide for landscape screens, a tall crop centered on the mirror for portrait screens.
 const HAS_VIDEO = true;
-const VIDEO_URL = 'assets/hero-scrub.mp4';
-const VIDEO_BYTES = 1053142;
+const SOURCES = {
+  wide: { url: 'assets/hero-scrub.mp4', bytes: 1053142, poster: 'assets/hero-poster.jpg' },
+  tall: { url: 'assets/hero-scrub-tall.mp4', bytes: 759354, poster: 'assets/hero-poster-tall.jpg' }
+};
+const TALL = matchMedia('(orientation: portrait)');
 let heroTop = 0, heroRange = 1, heroOnScreen = true;
 function measure() { const r = hero.getBoundingClientRect(); heroTop = r.top + scrollY; heroRange = Math.max(1, hero.offsetHeight - innerHeight); }
 function heroProgress() { return clamp((scrollY - heroTop) / heroRange, 0, 1); }
@@ -803,20 +818,42 @@ function requestSeek(t) {
 video.addEventListener('seeked', () => { seekBusy = false; if (pendingTime !== null) { const t = pendingTime; pendingTime = null; requestSeek(t); } });
 video.addEventListener('error', () => { seekBusy = false; pendingTime = null; failVideo(); });
 
-let started = false, inited = false;
-function initHeroOnce() {
-  if (inited) return; inited = true;
+// The poster and the Blob fetch live only here, and this only runs inside the scrub path, so static-hero visitors download neither.
+let wantKind = null; const blobs = {};
+function ensureSource() {
   if (!HAS_VIDEO) { failVideo(); return; }
-  posterLayer.style.backgroundImage = "url('assets/hero-poster.jpg')";
-  const img = new Image(); img.onload = () => { stage.classList.add('has-poster'); startBlobFetch(); }; img.onerror = startBlobFetch; img.src = 'assets/hero-poster.jpg';
-  setTimeout(startBlobFetch, 4000);
+  const kind = TALL.matches ? 'tall' : 'wide';
+  if (kind === wantKind) return;
+  wantKind = kind;
+  const s = SOURCES[kind];
+  stage.classList.remove('video-ready', 'has-poster', 'video-failed');
+  posterLayer.style.backgroundImage = "url('" + s.poster + "')";
+  if (blobs[kind]) { attachBlob(kind); return; }
+  let go = false;
+  const start = () => {
+    if (go) return; go = true;
+    loadHeroBlob(kind).then(() => { if (wantKind === kind) attachBlob(kind); }).catch(() => { if (wantKind === kind) failVideo(); });
+  };
+  const img = new Image();
+  img.onload = () => { if (wantKind === kind) stage.classList.add('has-poster'); start(); };
+  img.onerror = start; img.src = s.poster;
+  setTimeout(start, 4000);
 }
-function startBlobFetch() { if (started) return; started = true; loadHeroBlob().catch(failVideo); }
-async function loadHeroBlob() {
+function attachBlob(kind) {
+  seekBusy = false; pendingTime = null;
+  video.src = blobs[kind]; video.load();
+  video.addEventListener('canplay', () => {
+    if (wantKind !== kind) return;
+    requestSeek(heroProgress() * video.duration);
+    stage.classList.add('video-ready'); swapCue();
+  }, { once: true });
+}
+async function loadHeroBlob(kind) {
+  const s = SOURCES[kind];
   const ctrl = new AbortController(); let watchdog = setTimeout(() => ctrl.abort(), 20000);
-  const res = await fetch(VIDEO_URL, { priority: 'low', signal: ctrl.signal });
+  const res = await fetch(s.url, { priority: 'low', signal: ctrl.signal });
   if (!res.ok) throw new Error('video ' + res.status);
-  const total = Number(res.headers.get('Content-Length')) || VIDEO_BYTES;
+  const total = Number(res.headers.get('Content-Length')) || s.bytes;
   const reader = res.body.getReader(); const chunks = []; let got = 0, lastRing = 0;
   for (;;) {
     const { done, value } = await reader.read(); if (done) break;
@@ -826,8 +863,7 @@ async function loadHeroBlob() {
     if (now - lastRing > 100 || frac === 1) { lastRing = now; ring.style.setProperty('--ld', Math.round(126 * (1 - frac))); }
   }
   clearTimeout(watchdog); ring.style.setProperty('--ld', 0);
-  video.src = URL.createObjectURL(new Blob(chunks)); video.load();
-  video.addEventListener('canplay', () => { requestSeek(heroProgress() * video.duration); stage.classList.add('video-ready'); swapCue(); }, { once: true });
+  blobs[kind] = URL.createObjectURL(new Blob(chunks, { type: 'video/mp4' }));
 }
 let cueSwapped = false;
 function swapCue() {
@@ -845,16 +881,13 @@ let cueHidden = false;
 function cueWatch() { const h = scrollY > innerHeight * 0.6; if (h !== cueHidden) { cueHidden = h; cue.classList.toggle('hide', h); } }
 
 const GATES = [
-  '(max-width: 720px)',
-  '(orientation: portrait) and (max-width: 1024px)',
-  '(orientation: portrait) and (pointer: coarse)',
   '(orientation: landscape) and (pointer: coarse) and (max-height: 560px)',
   '(prefers-reduced-motion: reduce)'
 ];
 let scrubOn = false;
 function enableScrub() {
   if (scrubOn) return; scrubOn = true;
-  initHeroOnce();
+  ensureSource();
   measure();
   addEventListener('scroll', onScroll, { passive: true });
   addEventListener('scroll', cueWatch, { passive: true });
@@ -877,6 +910,7 @@ function disableScrub() {
 function applyHeroMode() { if (GATES.some(q => matchMedia(q).matches)) disableScrub(); else enableScrub(); }
 const MQLS = GATES.map(q => matchMedia(q));
 MQLS.forEach(m => m.addEventListener('change', applyHeroMode));
+TALL.addEventListener('change', () => { if (scrubOn) { ensureSource(); measure(); onScroll(); } });
 addEventListener('resize', () => { if (scrubOn) { measure(); onScroll(); } }, { passive: true });
 
 /* ---------- section entrances ---------- */
