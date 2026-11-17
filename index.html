@@ -286,6 +286,19 @@ details p{padding:0 48px 26px 0;color:var(--text-secondary);animation:fade .6s v
 .ask .alt{margin-top:30px;color:var(--text-secondary)}
 .ask .alt a{color:var(--text-primary);text-decoration:none;border-bottom:1px solid var(--panel-edge);transition:border-color .3s var(--ease)}
 .ask .alt a:hover{border-color:var(--accent)}
+
+/* section photos: one shared frame, the image inside drifts slowly with scroll (--dy is written by JS only while in view) */
+.photo{position:relative;overflow:hidden;border-radius:18px;border:1px solid var(--panel-edge);background:var(--canvas-deep);margin:0}
+.photo img{display:block;width:100%;height:100%;object-fit:cover;transform:translate3d(0,calc(var(--dy,0)*1px),0) scale(1.14)}
+.photo::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(31,20,32,.08) 0%,rgba(31,20,32,0) 40%,rgba(31,20,32,.4) 100%)}
+.floor-pic{width:min(1320px,calc(100% - 2*var(--gutter)));margin:0 auto clamp(56px,7vw,96px);aspect-ratio:21/9}
+.money-head{display:grid;grid-template-columns:1.15fr .85fr;gap:56px;align-items:end}
+.money-pic{aspect-ratio:4/3}
+.ask-pic{aspect-ratio:4/3;margin-top:40px;max-width:460px}
+.edu{overflow:hidden}
+.edu::before{content:"";position:absolute;inset:0;pointer-events:none;background:url('assets/hero-ending.jpg') 62% 40%/cover no-repeat;opacity:.5;-webkit-mask-image:radial-gradient(ellipse 70% 78% at 50% 50%,#000 30%,transparent 82%);mask-image:radial-gradient(ellipse 70% 78% at 50% 50%,#000 30%,transparent 82%)}
+.edu::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 60% 72% at 50% 52%,rgba(31,20,32,.6) 0%,rgba(31,20,32,.3) 70%,rgba(31,20,32,0) 100%)}
+.edu .wrap{position:relative;z-index:1}
 form{background:var(--panel);border:1px solid var(--panel-edge);border-radius:22px;padding:38px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .f{display:grid;gap:8px}
 .f.full{grid-column:1/-1}
@@ -343,6 +356,8 @@ footer ul{list-style:none;display:grid;gap:8px}
   .mirror .wrap,.floor .wrap,.ask .wrap{grid-template-columns:1fr}
   .after{border-left:0;padding-left:0;border-top:1px solid var(--panel-edge);padding-top:36px}
   .head2{grid-template-columns:1fr;gap:24px}
+  .money-head{grid-template-columns:1fr;gap:32px}
+  .money-pic{max-width:560px}
 }
 @media (max-width:720px){
   body{font-size:16px}
@@ -359,6 +374,8 @@ footer ul{list-style:none;display:grid;gap:8px}
   .ratio{font-size:clamp(4.4rem,22vw,8rem)}
   .mirror .ctas .btn{width:100%}
   .static h1{font-size:clamp(2.5rem,12vw,3.6rem)}
+  .floor-pic{aspect-ratio:4/3}
+  .floor-pic img{object-position:28% 50%}
 }
 
 /* visibility pause and reduced motion */
@@ -598,8 +615,13 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 
 <section id="money" class="money" data-reveal>
   <div class="wrap">
-    <p class="k part" style="--i:0">The money</p>
-    <h2 class="d part" style="--i:1">Let's talk about the money first. <em>Everyone else makes you wait.</em></h2>
+    <div class="money-head">
+      <div>
+        <p class="k part" style="--i:0">The money</p>
+        <h2 class="d part" style="--i:1">Let's talk about the money first. <em>Everyone else makes you wait.</em></h2>
+      </div>
+      <figure class="photo money-pic part" style="--i:2" aria-hidden="true"><img src="assets/money.jpg" alt="" width="1200" height="900" loading="lazy" decoding="async"></figure>
+    </div>
     <div class="money-grid">
       <div class="m part" style="--i:2"><span class="n">01</span><div><h3>Federal aid</h3><p>FAFSA school code 014945. Pell grants and federal loans for students who qualify.</p></div></div>
       <div class="m part" style="--i:3"><span class="n">02</span><div><h3>A payment plan</h3><p>Tuition split into fixed payments over time, set up before your first day.</p></div></div>
@@ -612,6 +634,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 <svg class="divider" viewBox="0 0 1200 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 20 C 300 60, 560 0, 860 40 S 1120 20, 1200 30"/></svg>
 
 <section id="floor" class="floor" data-reveal>
+  <figure class="photo floor-pic part" style="--i:0" aria-hidden="true"><img src="assets/floor.jpg" alt="" width="2000" height="1125" loading="lazy" decoding="async"></figure>
   <div class="wrap">
     <div>
       <p class="k part" style="--i:0">The floor</p>
@@ -663,6 +686,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
       <p class="lede part" style="--i:2">An admissions advisor replies within one business day with the numbers, the dates, and a tour invite. No pressure, no spam.</p>
       <ul class="bulbs part" style="--i:3" aria-hidden="true"><i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i><i style="--i:3"></i><i style="--i:4"></i></ul>
       <p class="alt part" style="--i:4">Rather talk now? <a href="tel:6053420697">Call 605-342-0697</a></p>
+      <figure class="photo ask-pic part" style="--i:5" aria-hidden="true"><img src="assets/welcome.jpg" alt="" width="1200" height="900" loading="lazy" decoding="async"></figure>
     </div>
     <div class="part" style="--i:2">
       <!-- FORM STEP: done. Submissions go to the Formspree form mvkaagyz -->
@@ -991,6 +1015,25 @@ form.addEventListener('submit', async e => {
     ferr.hidden = false; btn.disabled = false; btn.textContent = label;
   }
 });
+
+/* ---------- photo drift: rests when no photo is in view, writes only on change, off for reduced motion ---------- */
+const drifters = $$('.photo img'), driftOn = new Set(), RMQ = matchMedia('(prefers-reduced-motion: reduce)');
+const driftIO = new IntersectionObserver(es => { es.forEach(e => { if (e.isIntersecting) driftOn.add(e.target); else driftOn.delete(e.target); }); queueDrift(); }, { rootMargin: '10% 0px' });
+drifters.forEach(i => driftIO.observe(i));
+let driftRaf = null;
+function queueDrift() { if (driftRaf === null && driftOn.size) driftRaf = requestAnimationFrame(drift); }
+function drift() {
+  driftRaf = null;
+  const vh = innerHeight, still = RMQ.matches;
+  driftOn.forEach(img => {
+    const r = img.parentElement.getBoundingClientRect();
+    const c = clamp((r.top + r.height / 2 - vh / 2) / vh, -1, 1);
+    const dy = still ? 0 : Math.round(-c * r.height * 0.06 * 10) / 10;
+    if (img._dy !== dy) { img._dy = dy; img.style.setProperty('--dy', dy); }
+  });
+}
+addEventListener('scroll', queueDrift, { passive: true });
+RMQ.addEventListener('change', queueDrift);
 
 /* ---------- hidden tab pause ---------- */
 document.addEventListener('visibilitychange', () => document.body.classList.toggle('paused', document.hidden));
